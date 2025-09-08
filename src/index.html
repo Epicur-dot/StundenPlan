@@ -1,9 +1,196 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Stundenplan App</title>
-    </head>
-    <body>
-        <h1>Willkommen zur Stundenplan App</h1>
-    </body>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stundenplan App</title>
+  <style>
+    :root {
+      --c1: #021C1E;
+      --c2: #004445;
+      --c3: #2C7873;
+      --c4: #6FB98F;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: var(--c1);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--c2);
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+      background: var(--c1);
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input, button {
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    input {
+      background: #fff;
+      color: var(--c2);
+      flex: 1;
+      min-width: 200px;
+    }
+
+    button {
+      background: var(--c3);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: var(--c4);
+      color: var(--c1);
+    }
+
+    .week {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 1000px;
+    }
+
+    .day {
+      background: var(--c2);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .day h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--c4);
+      border-bottom: 2px solid var(--c3);
+      padding-bottom: 0.3rem;
+    }
+
+    .event {
+      background: var(--c3);
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .event strong {
+      font-size: 1rem;
+      color: var(--c1);
+    }
+
+    footer {
+      background: var(--c2);
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.9rem;
+      color: var(--c4);
+    }
+  </style>
+</head>
+<body>
+  <header>📅 Stundenplan App</header>
+
+  <main>
+    <div class="controls">
+      <input type="text" id="tokenInput" placeholder="Lehrer-Token eingeben..." />
+      <button onclick="loadSchedule()">Plan laden</button>
+    </div>
+
+    <div id="schedule" class="week"></div>
+  </main>
+
+  <footer>Powered by Luhu Solutions</footer>
+
+  <script src="main.js"></script>
+  <script>
+    async function loadSchedule() {
+      const token = document.getElementById('tokenInput').value;
+      const result = await studenplanladen(token);
+
+      const scheduleDiv = document.getElementById('schedule');
+      scheduleDiv.innerHTML = "";
+
+      if (!result.success) {
+        scheduleDiv.innerHTML = `<div style="color: tomato;">❌ Fehler: ${result.error}</div>`;
+        return;
+      }
+
+      const events = parseICalData(result.data);
+      const weekDates = getWeekDates(new Date(), 0);
+      const weekEvents = filterEventsforWeek(events, weekDates);
+
+      // Für jeden Tag eine Spalte
+      weekDates.forEach(day => {
+        const dayBox = document.createElement("div");
+        dayBox.className = "day";
+        const dateStr = day.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
+        dayBox.innerHTML = `<h3>${dateStr}</h3>`;
+
+        const eventsToday = weekEvents.filter(ev => {
+          const evDate = new Date(ev.start);
+          evDate.setHours(0,0,0,0);
+          day.setHours(0,0,0,0);
+          return evDate.getTime() === day.getTime();
+        });
+
+        if (eventsToday.length === 0) {
+          const noEv = document.createElement("div");
+          noEv.style.color = "var(--c4)";
+          noEv.textContent = "Keine Events";
+          dayBox.appendChild(noEv);
+        } else {
+          eventsToday.forEach(ev => {
+            const evDiv = document.createElement("div");
+            evDiv.className = "event";
+            evDiv.innerHTML = `
+              <strong>${ev.title || "Ohne Titel"}</strong>
+              <span>${ev.start ? ev.start.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}) : ""} - ${ev.end ? ev.end.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}) : ""}</span>
+              <span>${ev.location || ""}</span>
+            `;
+            dayBox.appendChild(evDiv);
+          });
+        }
+
+        scheduleDiv.appendChild(dayBox);
+      });
+    }
+  </script>
+</body>
 </html>
