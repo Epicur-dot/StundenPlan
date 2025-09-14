@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,6 +11,7 @@
       --c2: #004445;
       --c3: #2C7873;
       --c4: #6FB98F;
+      --error: #ff4757;
     }
 
     body {
@@ -48,7 +50,8 @@
       justify-content: center;
     }
 
-    input, button {
+    input,
+    button {
       padding: 0.6rem 1rem;
       border: none;
       border-radius: 8px;
@@ -89,7 +92,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     }
 
     .day h3 {
@@ -115,6 +118,15 @@
       color: var(--c1);
     }
 
+    .error {
+      color: var(--error);
+      padding: 1rem;
+      text-align: center;
+      background: rgba(255, 71, 87, 0.1);
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
     footer {
       background: var(--c2);
       text-align: center;
@@ -124,6 +136,7 @@
     }
   </style>
 </head>
+
 <body>
   <header>📅 Stundenplan App</header>
 
@@ -133,64 +146,76 @@
       <button onclick="loadSchedule()">Plan laden</button>
     </div>
 
+    <div id="status"></div>
     <div id="schedule" class="week"></div>
   </main>
 
   <footer>Powered by Luhu Solutions</footer>
 
-  <script src="main.js"></script>
+  <script src="renderer.js"></script>
   <script>
     async function loadSchedule() {
       const token = document.getElementById('tokenInput').value;
+      const statusDiv = document.getElementById('status');
+      const scheduleDiv = document.getElementById('schedule');
+
+      statusDiv.innerHTML = '<div style="color: var(--c4);">Lädt...</div>';
+      scheduleDiv.innerHTML = '';
+
       const result = await studenplanladen(token);
 
-      const scheduleDiv = document.getElementById('schedule');
-      scheduleDiv.innerHTML = "";
-
       if (!result.success) {
-        scheduleDiv.innerHTML = `<div style="color: tomato;">❌ Fehler: ${result.error}</div>`;
+        statusDiv.innerHTML = `<div class="error">❌ Fehler: ${result.error}</div>`;
         return;
       }
 
-      const events = parseICalData(result.data);
-      const weekDates = getWeekDates(new Date(), 0);
-      const weekEvents = filterEventsforWeek(events, weekDates);
+      statusDiv.innerHTML = '';
 
-      // Für jeden Tag eine Spalte
-      weekDates.forEach(day => {
-        const dayBox = document.createElement("div");
-        dayBox.className = "day";
-        const dateStr = day.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
-        dayBox.innerHTML = `<h3>${dateStr}</h3>`;
+      try {
+        const events = parseICalData(result.data);
+        const weekDates = getWeekDates(new Date(), 0);
+        const weekEvents = filterEventsforWeek(events, weekDates);
 
-        const eventsToday = weekEvents.filter(ev => {
-          const evDate = new Date(ev.start);
-          evDate.setHours(0,0,0,0);
-          day.setHours(0,0,0,0);
-          return evDate.getTime() === day.getTime();
-        });
+        // Für jeden Tag eine Spalte
+        weekDates.forEach(day => {
+          const dayBox = document.createElement("div");
+          dayBox.className = "day";
+          const dateStr = day.toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit" });
+          dayBox.innerHTML = `<h3>${dateStr}</h3>`;
 
-        if (eventsToday.length === 0) {
-          const noEv = document.createElement("div");
-          noEv.style.color = "var(--c4)";
-          noEv.textContent = "Keine Events";
-          dayBox.appendChild(noEv);
-        } else {
-          eventsToday.forEach(ev => {
-            const evDiv = document.createElement("div");
-            evDiv.className = "event";
-            evDiv.innerHTML = `
-              <strong>${ev.title || "Ohne Titel"}</strong>
-              <span>${ev.start ? ev.start.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}) : ""} - ${ev.end ? ev.end.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"}) : ""}</span>
-              <span>${ev.location || ""}</span>
-            `;
-            dayBox.appendChild(evDiv);
+          const eventsToday = weekEvents.filter(ev => {
+            const evDate = new Date(ev.start);
+            evDate.setHours(0, 0, 0, 0);
+            const dayCopy = new Date(day);
+            dayCopy.setHours(0, 0, 0, 0);
+            return evDate.getTime() === dayCopy.getTime();
           });
-        }
 
-        scheduleDiv.appendChild(dayBox);
-      });
+          if (eventsToday.length === 0) {
+            const noEv = document.createElement("div");
+            noEv.style.color = "var(--c4)";
+            noEv.textContent = "Keine Events";
+            dayBox.appendChild(noEv);
+          } else {
+            eventsToday.forEach(ev => {
+              const evDiv = document.createElement("div");
+              evDiv.className = "event";
+              evDiv.innerHTML = `
+                <strong>${ev.title || "Ohne Titel"}</strong>
+                <span>${ev.start ? ev.start.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : ""} - ${ev.end ? ev.end.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                <span>${ev.location || ""}</span>
+              `;
+              dayBox.appendChild(evDiv);
+            });
+          }
+
+          scheduleDiv.appendChild(dayBox);
+        });
+      } catch (error) {
+        statusDiv.innerHTML = `<div class="error">❌ Verarbeitungsfehler: ${error.message}</div>`;
+      }
     }
   </script>
 </body>
+
 </html>
